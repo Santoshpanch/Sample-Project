@@ -1,0 +1,68 @@
+name: Product Service CI
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "product-service/**"
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "product-service/**"
+env:
+  AWS_REGION: ap-south-1
+  IMAGE_TAG: ${{ github.sha }}
+jobs:
+  product-service-build:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+          cache: maven
+      - name: Validate
+        working-directory: product-service
+        run:
+          mvn validate
+      - name: Dependency Scan
+        working-directory: product-service
+        run:
+          mvn org.owasp:dependency-check-maven:check
+      - name: Unit Test
+        working-directory: product-service
+        run:
+          mvn test
+      - name: Build Package
+        working-directory: product-service
+        run:
+          mvn clean package -DskipTests
+      - name: Configure AWS
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-region: ap-south-1
+      - name: Login ECR
+        uses: aws-actions/amazon-ecr-login@v2
+      - name: Docker Build
+        run:
+          docker build \
+          -t ${{ secrets.PRODUCT_ECR }}:${IMAGE_TAG} \
+          ./product-service
+      - name: Trivy Scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.PRODUCT_ECR }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          exit-code: 1
+      - name: Push Image
+        run:
+          docker push \
+          ${{ secrets.PRODUCT_ECR }}:${IMAGE_TAG}

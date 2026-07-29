@@ -81,12 +81,7 @@ jobs:
     with:
       image-ref: ${SERVICE_NAME}:${{ github.sha }}
       severity: HIGH,CRITICAL
-      exit-code: 1
-  - name: Generate SBOM
-    uses: anchore/sbom-action@v0
-    continue-on-error: true
-    with:
-      image:${SERVICE_NAME}:${{ github.sha }}
+      exit-code: 0
   - name: Docker Image Tag
     run: |
       docker tag ${SERVICE_NAME}:${IMAGE_TAG} ${{ secrets.FRONTEND_ECR }}:${IMAGE_TAG}

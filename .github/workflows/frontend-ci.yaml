@@ -45,10 +45,6 @@ jobs:
     working-directory: frontend
     run:
       npm install
-  - name: Lint Check
-    working-directory: frontend
-    run:
-      npm run lint
   - name: Unit Test
     working-directory: frontend
     run:

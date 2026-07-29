@@ -57,28 +57,38 @@ jobs:
       npm run build
   - name: Assume AWS Role using OIDC
     shell: bash
+    env:
+      ROLE_ARN: arn:aws:iam::519765643705:role/github-actions-ecr-role
+      AWS_REGION: ap-south-1
     run: |
+      set -euo pipefail
   
-      ROLE_ARN="arn:aws:iam::519765643705:role/github-actions-ecr-role"
+      echo "Requesting GitHub OIDC token..."
   
-      TOKEN=$(curl \
-        -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-        "$ACTIONS_ID_TOKEN_REQUEST_URL" \
+      TOKEN=$(curl -sSf \
+        -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+        "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" \
         | jq -r '.value')
   
+      if [ -z "$TOKEN" ] || [ "$TOKEN" = "null" ]; then
+        echo "Failed to obtain OIDC token"
+        exit 1
+      fi
+  
+      echo "OIDC token acquired."
   
       CREDS=$(aws sts assume-role-with-web-identity \
-        --role-arn "$ROLE_ARN" \
-        --role-session-name github-actions \
-        --web-identity-token "$TOKEN" \
-        --duration-seconds 3600)
+        --role-arn "${ROLE_ARN}" \
+        --role-session-name "github-actions-${GITHUB_RUN_ID}" \
+        --web-identity-token "${TOKEN}" \
+        --duration-seconds 3600 \
+        --region "${AWS_REGION}")
   
+      echo "AWS_ACCESS_KEY_ID=$(echo "$CREDS" | jq -r '.Credentials.AccessKeyId')" >> "$GITHUB_ENV"
+      echo "AWS_SECRET_ACCESS_KEY=$(echo "$CREDS" | jq -r '.Credentials.SecretAccessKey')" >> "$GITHUB_ENV"
+      echo "AWS_SESSION_TOKEN=$(echo "$CREDS" | jq -r '.Credentials.SessionToken')" >> "$GITHUB_ENV"
   
-      echo "AWS_ACCESS_KEY_ID=$(echo $CREDS | jq -r '.Credentials.AccessKeyId')" >> $GITHUB_ENV
-  
-      echo "AWS_SECRET_ACCESS_KEY=$(echo $CREDS | jq -r '.Credentials.SecretAccessKey')" >> $GITHUB_ENV
-  
-      echo "AWS_SESSION_TOKEN=$(echo $CREDS | jq -r '.Credentials.SessionToken')" >> $GITHUB_ENV
+      echo "AWS credentials configured successfully."
   - name: Login ECR
     uses: aws-actions/amazon-ecr-login@v2
   - name: Dockerfile Lint

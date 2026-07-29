@@ -13,18 +13,14 @@ on:
 
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Deployment Environment"
+      image_tag:
+        description: "Docker Image Tag (example: 1.0.0)"
         required: true
-        default: "dev"
-        type: choice
-        options:
-          - dev
-          - uat
-          - prod
+        default: "1.0.0"
 env:
   AWS_REGION: ap-south-1
-  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag }}
+  SERVICE_NAME: frontend-ui
 jobs:
  frontend-build:
   name: Frontend Build Test Docker Push
@@ -78,21 +74,23 @@ jobs:
       < frontend/Dockerfile
   - name: Build Docker Image
     run: |
-      docker build -t ${{ secrets.FRONTEND_ECR }}:${IMAGE_TAG} ./frontend
+      docker build -t ${ SERVICE_NAME }:${IMAGE_TAG} ./frontend
   - name: Trivy Scan
     uses: aquasecurity/trivy-action@master
     with:
-      image-ref: ${{ secrets.FRONTEND_ECR }}:${{ github.sha }}
+      image-ref: ${SERVICE_NAME}:${{ github.sha }}
       severity: HIGH,CRITICAL
       exit-code: 1
   - name: Generate SBOM
     uses: anchore/sbom-action@v0
     with:
-      image: ${{ secrets.FRONTEND_ECR }}:${{ github.sha }}
+      image:${SERVICE_NAME}:${{ github.sha }}
+  - name: Docker Image Tag
+    run: |
+      docker tag ${SERVICE_NAME}:${IMAGE_TAG} ${{ secrets.FRONTEND_ECR }}:${IMAGE_TAG}
   - name: Push Image
-    run:
-      docker push \
-      ${{ secrets.FRONTEND_ECR }}:${IMAGE_TAG}
+    run: |
+      docker push ${{ secrets.FRONTEND_ECR }}:${IMAGE_TAG}
   - name: Upload SBOM
     uses: actions/upload-artifact@v4
     with:

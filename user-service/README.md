@@ -17,9 +17,3 @@ user-service/
 │       │
 │       └── resources/
 │           └── application.properties
-
-cd ../user-service
-docker build -t paymentology-user-service:1.0 .
-
-sudo apt update
-sudo apt install maven -y

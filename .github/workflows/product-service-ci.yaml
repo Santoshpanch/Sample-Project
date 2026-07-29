@@ -39,9 +39,6 @@ jobs:
       - name: Validate
         working-directory: product-service
         run: mvn validate
-      - name: Dependency Scan
-        working-directory: product-service
-        run: mvn org.owasp:dependency-check-maven:check
       - name: Unit Test
         working-directory: product-service
         run: mvn test

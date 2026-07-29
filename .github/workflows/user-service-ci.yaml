@@ -10,6 +10,17 @@ on:
       - main
     paths:
       - "user-service/**"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment Environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - uat
+          - prod
 env:
   AWS_REGION: ap-south-1
   IMAGE_TAG: ${{ github.sha }}

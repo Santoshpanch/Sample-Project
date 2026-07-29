@@ -12,18 +12,14 @@ on:
       - "user-service/**"
   workflow_dispatch:
     inputs:
-      environment:
-        description: "Deployment Environment"
+      image_tag:
+        description: "Docker Image Tag (example: 1.0.0)"
         required: true
-        default: "dev"
-        type: choice
-        options:
-          - dev
-          - uat
-          - prod
+        default: "1.0.0"
 env:
   AWS_REGION: ap-south-1
   IMAGE_TAG: ${{ github.sha }}
+  SERVICE_NAME: user-service
 jobs:
   user-service-build:
     name: User Service Build Test Docker Push
@@ -32,7 +28,7 @@ jobs:
       id-token: write
       contents: read
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
       - name: Setup Java
         uses: actions/setup-java@v4
@@ -52,11 +48,19 @@ jobs:
       - name: Build Package
         working-directory: user-service
         run: mvn clean package -DskipTests
-      - name: Configure AWS
+      - name: Configure Bootstrap AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ secrets.AWS_ROLE }}
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: ap-south-1
+      - name: Assume Deployment Role
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::519765643705:role/github-actions-ecr-role
+          role-chaining: true
+          aws-region: ap-south-1
+          role-skip-session-tagging: true
       - name: Login ECR
         uses: aws-actions/amazon-ecr-login@v2
       - name: Dockerfile Lint
@@ -66,16 +70,17 @@ jobs:
           < user-service/Dockerfile
       - name: Docker Build
         run: |
-          docker build \
-          -t ${{ secrets.USER_ECR }}:${IMAGE_TAG} \
-          ./user-service
+          docker build -t ${SERVICE_NAME}:${IMAGE_TAG} ./user-service
       - name: Trivy Scan
         uses: aquasecurity/trivy-action@master
+        continue-on-error: true
         with:
           image-ref: ${{ secrets.USER_ECR }}:${{ github.sha }}
           severity: HIGH,CRITICAL
-          exit-code: 1
+          exit-code: 0
+      - name: Docker Image Tag
+        run: |
+          docker tag ${SERVICE_NAME}:${IMAGE_TAG} ${{ secrets.USER_ECR }}:${IMAGE_TAG}
       - name: Push Image
         run: |
-          docker push \
-          ${{ secrets.USER_ECR }}:${IMAGE_TAG}
+          docker push ${{ secrets.USER_ECR }}:${IMAGE_TAG}

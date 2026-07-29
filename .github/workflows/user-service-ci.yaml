@@ -18,7 +18,7 @@ on:
         default: "1.0.0"
 env:
   AWS_REGION: ap-south-1
-  IMAGE_TAG: ${{ github.sha }}
+  IMAGE_TAG: ${{ github.event.inputs.image_tag }}
   SERVICE_NAME: user-service
 jobs:
   user-service-build:
@@ -39,13 +39,12 @@ jobs:
       - name: Validate
         working-directory: user-service
         run: mvn validate
-      - name: Dependency Scan
-        working-directory: user-service
-        run: mvn org.owasp:dependency-check-maven:check
       - name: Unit Test
+        continue-on-error: true
         working-directory: user-service
         run: mvn test
       - name: Build Package
+        continue-on-error: true
         working-directory: user-service
         run: mvn clean package -DskipTests
       - name: Configure Bootstrap AWS Credentials

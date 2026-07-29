@@ -67,6 +67,7 @@ jobs:
       role-to-assume: arn:aws:iam::519765643705:role/github-actions-ecr-role
       role-chaining: true
       aws-region: ap-south-1
+      role-skip-session-tagging: true
   - name: Login ECR
     uses: aws-actions/amazon-ecr-login@v2
   - name: Dockerfile Lint
